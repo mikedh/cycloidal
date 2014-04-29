@@ -9,6 +9,6 @@ Numpy is required, matplotlib is recommended. Try tuning the dimension and count
 
 Run with:
 
-    ```
+    
     ipython -i cycloidal.py
-    ```
+    
