@@ -8,4 +8,7 @@ The profile generation was implemented from 'Gear geometry of cycloid drives', C
 Numpy is required, matplotlib is recommended. Try tuning the dimension and count parameters in generate_regular. generate_rolling generates the profiles for a more hypothetical but related mechanism. 
 
 Run with:
+
+    ```
     ipython -i cycloidal.py
+    ```
