@@ -156,7 +156,7 @@ def generate_regular():
     display.circles(pin_radius, pattern_radius, pin_count, layer='pins')
     
     # output hole pattern
-    display.circles((19/25.4)*.5, .75, 3, offset=[eccentricity, 0,0], layer='outcam_A')
+    display.circles((19/25.4)*.5, .75, 3, offset=[eccentricity, 0,0],  layer='outcam_A')
     display.circles((19/25.4)*.5, .75, 3, offset=[-eccentricity, 0,0], layer='outcam_B')
 
     display.profile(inner_cam, 
