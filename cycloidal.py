@@ -1,173 +1,154 @@
 #!/usr/bin/python
 '''
-Mike Dawson-Haggerty 
+Mike Dawson-Haggerty
 1/30/2014
 
 Inspired by:
 http://www.zincland.com/hypocycloid
 
 Implemented from:
-'Gear geometry of cycloid drives', Chen BingKui et al. 
+'Gear geometry of cycloid drives', Chen BingKui et al.
 http://download.springer.com/static/pdf/96/art%253A10.1007%252Fs11431-008-0055-3.pdf
 Equations 10, 11
 '''
 
 import numpy as np
-import matplotlib.pyplot as plt
-import sdxf
 
-def cycloidal_profile(count_pin, 
+import trimesh
+
+
+def cycloidal_profile(count_pin,
                       count_cam,
                       eccentricity,
                       radius_pin,
-                      radius_pattern):
-  
+                      radius_pattern,
+                      resolution=16):
+    '''
+    Return a (n,2) curve representing a cyloidal gear profile.
+
+    Parameters
+    -------------
+    count_pin:      int, number of pins in the radial pattern
+    count_cam:      int, number of lobes on the disc.
+                          for a regular disc, equal to count_pin-1
+    eccentricity:   float, magnitude of eccentricity
+    radius_pin:     float, radius of individual pin
+    radius_pattern: float, radius of pin centers
+    resolution:     float, number of points per degree
+
+    Returns
+    ------------
+    profile: (n,2) float, ordered points on curve in 2D space
+    '''
     Rz = radius_pattern  # radius of pin pattern
     rz = radius_pin      # radius of pin
-    e  = eccentricity    # eccentricity
+    e = eccentricity    # eccentricity
     Zb = count_pin       # number of pins
     Zg = count_cam       # tooth count on gear
-    
-    Ze = Zb / (Zb-Zg)
-    Zd = Zg / (Zb-Zg)
-    
-    K1 = (e*Zb) / (Rz*(Zb-Zg))
-    
+
+    Ze = Zb / (Zb - Zg)
+    Zd = Zg / (Zb - Zg)
+    K1 = (e * Zb) / (Rz * (Zb - Zg))
+
     # in the paper they say you should calculate this numerically...
-    psi_max = np.pi*2
-    psi     = np.linspace(0, psi_max, 8*360)
-    
-    denom_B = np.sqrt(1 + K1**2 - 2*K1*np.cos(Zd * psi))
-    cos_B   = np.sign(Zb-Zg) *  ((K1 * np.sin(Ze*psi)) - np.sin(psi)) / denom_B
+    psi = np.linspace(0, np.pi * 2, int(resolution * 360))
 
-    sin_B   = np.sign(Zb-Zg) * ((-K1 * np.cos(Ze*psi)) + np.cos(psi)) / denom_B
-    x = Rz*np.sin(psi) - e*np.sin(Ze*psi) + rz*cos_B
-    y = Rz*np.cos(psi) - e*np.cos(Ze*psi) - rz*sin_B
+    denom_B = np.sqrt(1 + K1**2 - 2 * K1 * np.cos(Zd * psi))
+    cos_B = np.sign(Zb - Zg) * ((K1 * np.sin(Ze * psi)) -
+                                np.sin(psi)) / denom_B
+    sin_B = np.sign(Zb - Zg) * ((-K1 * np.cos(Ze * psi)) +
+                                np.cos(psi)) / denom_B
 
-    return np.column_stack((x,y))
+    x = Rz * np.sin(psi) - e * np.sin(Ze * psi) + rz * cos_B
+    y = Rz * np.cos(psi) - e * np.cos(Ze * psi) - rz * sin_B
 
-def transform_points(points, xy_theta):
-    xy    = xy_theta[0:2]
-    theta = xy_theta[2]
-    R = np.eye(3)
-    c = np.cos(theta)
-    s = np.sin(theta)
-    R[0:2, 0:2] = [[c, -s], [s, c]]
-    R[0:2, 2]   = xy
-    transformed = np.dot(R, 
-                         np.column_stack((points, 
-                                          np.ones(len(points)))).T).T[:,0:2]
-    return transformed
- 
-class Display:
-    def __init__(self, plot=False, filename=None):
-        self.plot     = plot
-        self.save     = filename <> None
-        self.filename = filename
-        if self.save: self.dxf = sdxf.Drawing()
-        
-    def circles(self,
-                radius_circle,
-                radius_pattern = 0.0,
-                count          = 1,
-                offset         = [0,0,0],
-                layer          = 'circles'):
-                
-        sample      = np.linspace(0, np.pi*2, 90)
-        circle      = np.column_stack((np.cos(sample), np.sin(sample))) * radius_circle
-        angle       = np.arange(offset[2], offset[2]+np.pi*2, (np.pi*2/(count)))
-        pin_centers = np.column_stack((np.cos(angle), np.sin(angle))) * radius_pattern + offset[0:2]
-        for center in pin_centers:
-            if self.plot: 
-                plt.plot(*(circle + center).T, color='k')
-            if self.save: 
-                self.dxf.append(sdxf.Circle(center = center, 
-                                            radius = radius_circle, 
-                                            layer  = layer))
-    def profile(self,
-                profile, 
-                offset = [0,0,0],
-                layer = 'profile'):
-        profile = transform_points(profile, offset)
-        if self.plot: 
-            plt.plot(*profile.T)
-        if self.save:
-            self.dxf.append(sdxf.PolyLine(points = profile.tolist(),
-                                          layer  = layer))
-    def close(self):
-        if self.save:
-            self.dxf.saveas(self.filename)
-        if self.plot: 
-            plt.axes().set_aspect('equal', 'datalim')  
-            plt.show()
+    profile = np.column_stack((x, y))
 
-def pack_radius(pin_radius, pin_count):
-    n = float(pin_count)
-    R = pin_radius / (np.sin(np.pi / n))
-    return R
-    
-def generate_rolling():
-    pin_radius     = .5/2
-    pin_count      = 17
-    eccentricity   = 0.055
+    return profile
 
 
-    pattern_radius = pack_radius(pin_radius, pin_count)
+def dual_cycloidal(eccentricity=.07,
+                   count_pin=24,
+                   radius_pin=.125,
+                   radius_pattern=2.25,
+                   input_count=3,
+                   input_radius=.5625,
+                   input_pattern=1.3125):
+    '''
+    Generate the profiles, pins, and holes for a regular dual- disc
+    cycloidal drive. This design has two discs operation 180 degrees
+    out of phase to minimize vibration.
 
-    inner_cam = cycloidal_profile(pin_count, 
-                                  pin_count-1,
-                                  eccentricity,
-                                  pin_radius,
-                                  pattern_radius)
-    inner_cam += [eccentricity,0]
-    
-    outer_cam  = cycloidal_profile(pin_count, 
-                                   pin_count+1,
-                                   eccentricity,
-                                   pin_radius,
-                                   pattern_radius) 
-    outer_cam  += [-eccentricity,0]
-      
-    display = Display(plot=True, filename='rolling_cycloidal.dxf')
-    
-    display.circles(pin_radius,
-                    pattern_radius,
-                    pin_count)
-    display.profile(inner_cam, 
-                    layer = 'inner_cam')
-    display.profile(outer_cam, 
-                    layer = 'outer_cam')
-    display.close()
-    
-def generate_regular():
-    pin_radius     = 0.25 / 2.0
-    eccentricity   = 0.070
-    pin_count      = 20
-    pattern_radius = 1.75
+    Parameters
+    ------------
+    eccentricity:   float, magnitude of eccentricity
+    count_pin: int, number of fixed pins
+    radius_pin:     float, radius of a fixed pin
+    radius_pattern: float, radius of pin pattern
+    input_count:    int, number of holes in the cycloidal disc
+    input_radius:   float, radius of the holes in the cycloidal disc
+    input_pattern:  float, radius of the hole pattern in the disc
 
-    display = Display(plot=True, filename='cycloidal.dxf')
-    
-    inner_cam = cycloidal_profile(pin_count, 
-                                  pin_count-1,
-                                  eccentricity,
-                                  pin_radius,
-                                  pattern_radius)
-    # draw the pin pattern
-    display.circles(pin_radius, pattern_radius, pin_count, layer='pins')
-    
-    # output hole pattern
-    display.circles((19/25.4)*.5, .75, 3, offset=[eccentricity, 0,0],  layer='outcam_A')
-    display.circles((19/25.4)*.5, .75, 3, offset=[-eccentricity, 0,0], layer='outcam_B')
+    Returns
+    -------------
+    drive: Path2D object, with two disc layers and a pin layer
+    '''
 
-    display.profile(inner_cam, 
-                    offset = [eccentricity,0, .5*np.pi/(pin_count-1)], 
-                    layer  = 'outcam_A')
-    display.profile(inner_cam, 
-                    offset = [-eccentricity,0, -.5*np.pi/(pin_count-1)], 
-                    layer  = 'outcam_B')
-    
-    display.close()
+    # half a tooth spacing for transforming disc to pin pattern
+    spacing = .5 * np.pi / (count_pin - 1)
 
-if __name__ == '__main__': 
-    generate_regular()       
-    generate_rolling()
+    # get a disc profile, with a very dense sampling
+    a = trimesh.load_path(cycloidal_profile(count_pin=count_pin,
+                                            count_cam=count_pin - 1,
+                                            eccentricity=eccentricity,
+                                            radius_pin=radius_pin,
+                                            radius_pattern=radius_pattern,
+                                            resolution=32))
+
+    # replace the polyline entity with a bajillion points with a
+    # tightly fit B-Spline
+    a.simplify_spline(smooth=1e-6)
+
+    # the second disc has the same profile, with a different transform
+    b = a.copy()
+    # for the first disc, apply the transform to line up with the pins
+    a.apply_transform(trimesh.transformations.planar_matrix(
+        offset=[-eccentricity, 0.0],
+        theta=spacing))
+    a.apply_layer('cam_disc_A')
+    # do the same for the second disc
+    b.apply_transform(trimesh.transformations.planar_matrix(
+        offset=[eccentricity, 0.0],
+        theta=-spacing))
+    b.apply_layer('cam_disc_B')
+
+    # generate the fixed pins
+    pins = trimesh.path.creation.circle_pattern(pattern_radius=radius_pattern,
+                                                circle_radius=radius_pin,
+                                                count=count_pin)
+    pins.apply_layer('pins')
+
+    # add the holes for the
+    holes_A = trimesh.path.creation.circle_pattern(pattern_radius=input_pattern,
+                                                   circle_radius=input_radius,
+                                                   center=[-eccentricity, 0.0],
+                                                   count=input_count)
+    holes_A.apply_layer('cam_disc_A')
+
+    holes_B = trimesh.path.creation.circle_pattern(pattern_radius=input_pattern,
+                                                   circle_radius=input_radius,
+                                                   center=[eccentricity, 0.0],
+                                                   count=input_count)
+    holes_B.apply_layer('cam_disc_B')
+
+    # concatenate all of the paths into a single drawing
+    drive = a + b + pins + holes_A + holes_B
+
+    return drive
+
+
+if __name__ == '__main__':
+    drive = dual_cycloidal()
+    drive.export('cycloidal_drive.dxf')
+
+    drive.show()
