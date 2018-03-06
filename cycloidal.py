@@ -107,7 +107,7 @@ def dual_cycloidal(eccentricity=.07,
 
     # replace the polyline entity with a bajillion points with a
     # tightly fit B-Spline
-    a.simplify_spline(smooth=1e-6)
+    a = a.simplify_spline(smooth=1e-6)
 
     # the second disc has the same profile, with a different transform
     b = a.copy()
